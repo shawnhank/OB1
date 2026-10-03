@@ -1,15 +1,5 @@
 # Grok Export Import
 
-<div align="center">
-
-![Community Contribution](https://img.shields.io/badge/OB1_COMMUNITY-Approved_Contribution-2ea44f?style=for-the-badge&logo=github)
-
-**Created by [@alanshurafa](https://github.com/alanshurafa)**
-
-*Reviewed and merged by the Open Brain maintainer team — thank you for building the future of AI memory!*
-
-</div>
-
 > Import xAI Grok conversation history into Open Brain as searchable thoughts.
 
 ## What It Does
@@ -47,12 +37,14 @@ FROM OPENROUTER
    - Find the Grok JSON file in the export
 
 2. **Copy this recipe folder** and install dependencies:
+
    ```bash
-   cd recipes/grok-export-import
+   cd grok-export-import
    npm install
    ```
 
 3. **Create `.env`** with your credentials (see `.env.example`):
+
    ```env
    SUPABASE_URL=https://your-project.supabase.co
    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
@@ -60,11 +52,13 @@ FROM OPENROUTER
    ```
 
 4. **Preview what will be imported** (dry run):
+
    ```bash
    node import-grok.mjs /path/to/grok-export.json --dry-run
    ```
 
 5. **Run the import:**
+
    ```bash
    node import-grok.mjs /path/to/grok-export.json
    ```

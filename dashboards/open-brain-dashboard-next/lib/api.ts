@@ -23,7 +23,13 @@ function headers(apiKey: string): HeadersInit {
   };
 }
 
-async function apiFetch<T>(
+/**
+ * Authenticated JSON fetch against the open-brain-rest Edge Function.
+ *
+ * Exported so dashboard extensions (see EXTENSIONS.md) can reuse the auth
+ * header + error-translation plumbing without duplicating it.
+ */
+export async function apiFetch<T>(
   apiKey: string,
   path: string,
   init?: RequestInit
@@ -73,7 +79,7 @@ export async function fetchThoughts(
 
 export async function fetchThought(
   apiKey: string,
-  id: number,
+  id: string,
   excludeRestricted: boolean = true
 ): Promise<Thought> {
   const qs = excludeRestricted ? "" : "?exclude_restricted=false";
@@ -82,10 +88,10 @@ export async function fetchThought(
 
 export async function updateThought(
   apiKey: string,
-  id: number,
-  data: { content?: string; type?: string; importance?: number }
-): Promise<{ id: number; action: string; message: string }> {
-  return apiFetch<{ id: number; action: string; message: string }>(
+  id: string,
+  data: { content?: string; type?: string; importance?: number; status?: string | null }
+): Promise<{ id: string; action: string; message: string }> {
+  return apiFetch<{ id: string; action: string; message: string }>(
     apiKey,
     `/thought/${id}`,
     {
@@ -93,6 +99,33 @@ export async function updateThought(
       body: JSON.stringify(data),
     }
   );
+}
+
+export async function fetchKanbanThoughts(
+  apiKey: string,
+  params?: {
+    status?: string;
+    exclude_restricted?: boolean;
+  }
+): Promise<Thought[]> {
+  // Fetch tasks and ideas separately (API only supports single type filter)
+  const results: Thought[] = [];
+  for (const thoughtType of ["task", "idea"]) {
+    const sp = new URLSearchParams();
+    sp.set("per_page", "100");
+    sp.set("sort", "importance");
+    sp.set("order", "desc");
+    sp.set("type", thoughtType);
+    if (params?.status) sp.set("status", params.status);
+    if (params?.exclude_restricted !== undefined)
+      sp.set("exclude_restricted", String(params.exclude_restricted));
+    const qs = sp.toString();
+    const data = await apiFetch<BrowseResponse>(apiKey, `/thoughts?${qs}`);
+    results.push(...data.data);
+  }
+  // Re-sort combined results by importance desc
+  results.sort((a, b) => b.importance - a.importance);
+  return results;
 }
 
 export async function fetchDuplicates(
@@ -109,9 +142,17 @@ export async function fetchDuplicates(
 
 export async function deleteThought(
   apiKey: string,
-  id: number
+  id: string
 ): Promise<void> {
-  await apiFetch<unknown>(apiKey, `/thought/${id}`, { method: "DELETE" });
+  const url = `${API_URL}/thought/${id}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: headers(apiKey),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new ApiError(`API ${res.status}: ${text || res.statusText}`, res.status);
+  }
 }
 
 export interface SearchResponse {
@@ -151,7 +192,7 @@ export async function fetchStats(
 }
 
 export interface CaptureResult {
-  thought_id: number;
+  thought_id: string;
   action: string;
   type: string;
   sensitivity_tier: string;
@@ -171,7 +212,7 @@ export async function captureThought(
 
 export async function fetchReflections(
   apiKey: string,
-  thoughtId: number
+  thoughtId: string
 ): Promise<Reflection[]> {
   const data = await apiFetch<{ reflections: Reflection[] }>(
     apiKey,
